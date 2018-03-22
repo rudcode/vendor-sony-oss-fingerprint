@@ -62,15 +62,29 @@ void *enroll_thread_loop(void *arg)
     }
 
     int status = 1;
+    bool wait_finger_lost = 1;
 
-    while((status = fpc_capture_image(sdev->fpc)) >= 0) {
+    while((status = fpc_capture_image(sdev->fpc, wait_finger_lost)) >= 0) {
         ALOGD("%s : Got Input status=%d", __func__, status);
-
+        
+        pthread_mutex_lock(&sdev->lock);
+        if (!sdev->worker.thread_running) {
+            pthread_mutex_unlock(&sdev->lock);
+            break;
+        }
+        pthread_mutex_unlock(&sdev->lock);
+        
+        if(status >= 1000) {
+            if(status >= 1001) wait_finger_lost = 0;
+            continue;
+        }
+        
         if (status <= FINGERPRINT_ACQUIRED_TOO_FAST) {
             fingerprint_msg_t msg;
             msg.type = FINGERPRINT_ACQUIRED;
             msg.data.acquired.acquired_info = status;
             callback(&msg);
+            wait_finger_lost = 0;
         }
 
         //image captured
@@ -128,13 +142,8 @@ void *enroll_thread_loop(void *arg)
                 callback(&msg);
                 break;
             }
+            wait_finger_lost = 1;
         }
-        pthread_mutex_lock(&sdev->lock);
-        if (!sdev->worker.thread_running) {
-            pthread_mutex_unlock(&sdev->lock);
-            break;
-        }
-        pthread_mutex_unlock(&sdev->lock);
     }
 
     uint32_t print_id = 0;
@@ -155,10 +164,11 @@ void *auth_thread_loop(void *arg)
     fingerprint_notify_t callback = sdev->device.notify;
     int result;
     int status = 1;
+    bool wait_finger_lost = 1;
 
     fpc_auth_start(sdev->fpc);
 
-    while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
+    while((status = fpc_capture_image(sdev->fpc, wait_finger_lost)) >= 0 ) {
         ALOGV("%s : Got Input with status %d", __func__, status);
 
         pthread_mutex_lock(&sdev->lock);
@@ -168,14 +178,17 @@ void *auth_thread_loop(void *arg)
         }
         pthread_mutex_unlock(&sdev->lock);
 
-        if(status >= 1000)
+        if(status >= 1000) {
+            if(status >= 1001) wait_finger_lost = 0;
             continue;
+        }
 
         if (status <= FINGERPRINT_ACQUIRED_TOO_FAST) {
             fingerprint_msg_t msg;
             msg.type = FINGERPRINT_ACQUIRED;
             msg.data.acquired.acquired_info = status;
             callback(&msg);
+            wait_finger_lost = 0;
         }
 
         if (status == FINGERPRINT_ACQUIRED_GOOD) {
@@ -228,6 +241,7 @@ void *auth_thread_loop(void *arg)
                 }
             }
             callback(&msg);
+            wait_finger_lost = 1;
         }
     }
 

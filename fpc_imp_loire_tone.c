@@ -354,22 +354,12 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
                 ALOGV("Error waiting for irq: %d\n", result);
                 return -1;
         }
-
-        result = send_normal_command(ldata, FPC_GET_FINGER_STATUS);
-        if(result < 0)
-        {
-            ALOGE("Get finger status failed: %d\n", result);
-            return result;
-        }
-        ALOGD("Finger status: %d\n", result);
-        if(result)
-            return 0;
     }
-    return -1;
+    return 0;
 }
 
 // Attempt to capture image
-err_t fpc_capture_image(fpc_imp_data_t *data)
+err_t fpc_capture_image(fpc_imp_data_t *data, bool wait_finger_lost)
 {
     ALOGV(__func__);
 
@@ -380,18 +370,30 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         return -1;
     }
 
-    int ret = fpc_wait_finger_lost(data);
+    int ret;
+    if (wait_finger_lost) {
+        ret = fpc_wait_finger_lost(data);
+    } else {
+        ret = 0;
+    }
     if(!ret)
     {
         ALOGV("Finger lost as expected\n");
         ret = fpc_wait_finger_down(data);
         if(!ret)
         {
-            ALOGE("Finger down, capturing image\n");
-            ret = send_normal_command(ldata, FPC_CAPTURE_IMAGE);
-            ALOGE("Image capture result :%d\n", ret);
-        } else
+            ret = send_normal_command(ldata, FPC_GET_FINGER_STATUS);
+            ALOGD("Finger status: %d\n", ret);
+            if(ret) {
+                ALOGE("Finger down, capturing image\n");
+                ret = send_normal_command(ldata, FPC_CAPTURE_IMAGE);
+                ALOGE("Image capture result :%d\n", ret);
+            } else {
+                ret = 1;
+            }
+        } else {
             ret = 1001;
+        }
     } else {
         ret = 1000;
     }

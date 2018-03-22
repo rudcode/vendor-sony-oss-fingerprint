@@ -46,7 +46,7 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id); //delete print at ind
 fpc_fingerprint_index_t fpc_get_print_ids(fpc_imp_data_t *data, uint32_t count); //get list of print index's available
 fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data, uint32_t count); //get list of print index's available
 err_t fpc_wait_for_finger(fpc_imp_data_t *data); //wait for event IRQ on print reader
-err_t fpc_capture_image(fpc_imp_data_t *data); //capture image ready for enroll / auth
+err_t fpc_capture_image(fpc_imp_data_t *data, bool wait_finger_lost); //capture image ready for enroll / auth
 err_t fpc_enroll_step(fpc_imp_data_t *data, uint32_t *remaining_touches); //step forward enroll & process image (only available if capture image returns OK)
 // FIXME: index of next print should be retrieved using fpc_get-print_count internally in kitakami impl.
 err_t fpc_enroll_start(fpc_imp_data_t *data, int print_index); //start enrollment
